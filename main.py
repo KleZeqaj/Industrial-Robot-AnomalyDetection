@@ -7,7 +7,10 @@ from sklearn.metrics import confusion_matrix, classification_report
 import matplotlib.pyplot as plt
 import numpy as np
 
-def train(model, training_loader, lr=1e-3, epochs=500):
+device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
+print(f"Using device: {device}")
+
+def train(model, training_loader, device, lr=1e-3, epochs=500):
     reconstruct_loss_fn = torch.nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr)
 
@@ -16,6 +19,7 @@ def train(model, training_loader, lr=1e-3, epochs=500):
         running_loss = 0.0
 
         for inputs, _ in training_loader:
+            inputs = inputs.to(device)
             optimizer.zero_grad()
             loss = reconstruct_loss_fn(model(inputs), inputs)
             loss.backward()
@@ -42,8 +46,8 @@ x, y = train_dataset[0]
 input_dim = x.shape[0]
 latent_dim = 32
 
-ae = AE(input_dim, latent_dim)
-train(ae, train_loader, lr=0.001, epochs=10)
+ae = AE(input_dim, latent_dim).to(device)
+train(ae, train_loader, device, lr=0.001, epochs=1)
 
 
 t = compute_threshold(ae, val_loader, quantile=0.95)
@@ -56,14 +60,15 @@ all_errors = []
 
 with torch.no_grad():
     for x, y in test_loader:
+        x = x.to(device)
         recon = ae(x)
-        err = (recon - x).pow(2).mean(dim=1)
+        err = (recon - x).pow(2).mean(dim=1).cpu()
 
         preds = (err > t).int()
 
-        all_preds.append(preds)
-        all_labels.append(y)
-        all_errors.append(err)
+        all_preds.append(preds.cpu())
+        all_labels.append(y.cpu())
+        all_errors.append(err.cpu())
 
 all_preds = torch.cat(all_preds)
 all_labels = torch.cat(all_labels)
