@@ -20,6 +20,13 @@ class KukaDataset(Dataset):
         x_slow = slow[:, :-1]
         y_slow = slow[:, -1].astype(np.int64)
 
+        feature_mean = x_normal.mean(axis=0, keepdims=True)
+        feature_std = x_normal.std(axis=0, keepdims=True)
+        feature_std[feature_std < 1e-8] = 1.0
+
+        x_normal = (x_normal - feature_mean) / feature_std
+        x_slow = (x_slow - feature_mean) / feature_std
+
         self.x = np.concatenate([x_normal, x_slow], axis=0)
         self.y = np.concatenate([y_normal, y_slow], axis=0)
 
