@@ -40,6 +40,7 @@ def split_kuka(dataset, train_ratio=0.7, val_ratio=0.15):
 
 def compute_threshold(model, dataloader, normal_label=0, quantile=0.95):
     model.eval()
+    device = next(model.parameters()).device
 
     all_errors = []
 
@@ -49,10 +50,10 @@ def compute_threshold(model, dataloader, normal_label=0, quantile=0.95):
             if mask.sum().item() == 0:
                 continue
 
-            x = x[mask]
+            x = x[mask].to(device)
             recon = model(x)
             err = (recon - x).pow(2).mean(dim=1)
-            all_errors.append(err)
+            all_errors.append(err.cpu()) # Move to CPU to keep memory footprint low
 
     all_errors = torch.cat(all_errors)
 
