@@ -1,13 +1,13 @@
 from dataset.kuka_dataset import KukaDataset
 from torch.utils.data import DataLoader
 from models.AE import AE
-from sklearn.metrics import confusion_matrix, classification_report
-from utils import split_kuka, compute_threshold
+from utils import split_kuka, compute_threshold, plot_reconstruction_errors
 import torch
-
+from sklearn.metrics import confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+import numpy as np
 
 def train(model, training_loader, lr=1e-3, epochs=500):
-
     reconstruct_loss_fn = torch.nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr)
 
@@ -46,12 +46,13 @@ ae = AE(input_dim, latent_dim)
 train(ae, train_loader, lr=0.001, epochs=10)
 
 
-t = compute_threshold(ae, train_loader)
+t = compute_threshold(ae, val_loader, quantile=0.95)
 print(f"Threshold: {t.item():.6f}")
 
 
 all_preds = []
 all_labels = []
+all_errors = []
 
 with torch.no_grad():
     for x, y in test_loader:
@@ -62,11 +63,14 @@ with torch.no_grad():
 
         all_preds.append(preds)
         all_labels.append(y)
+        all_errors.append(err)
 
 all_preds = torch.cat(all_preds)
 all_labels = torch.cat(all_labels)
+all_errors = torch.cat(all_errors)
 
 print(f"Anomalies detected: {(all_preds[all_labels == 1]).sum().item()} / {(all_labels == 1).sum().item()}")
+
 
 
 cm = confusion_matrix(all_labels.cpu().numpy(), all_preds.cpu().numpy(), labels=[0, 1])
@@ -75,3 +79,5 @@ print("Confusion Matrix:")
 print(cm)
 
 print(classification_report(all_labels.cpu().numpy(), all_preds.cpu().numpy(), target_names=["Normal", "Anomaly"]))
+
+plot_reconstruction_errors(all_errors, all_labels, t)
