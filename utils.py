@@ -3,6 +3,7 @@ from torch.utils.data import Subset
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def split_kuka(dataset, train_ratio=0.7, val_ratio=0.15):
     labels = dataset.y
 
@@ -52,15 +53,17 @@ def compute_threshold(model, dataloader, normal_label=0, quantile=0.95):
 
             x = x[mask].to(device)
             recon = model(x)
-            err = (recon - x).pow(2).mean(dim=1)
-            all_errors.append(err.cpu()) # Move to CPU to keep memory footprint low
+            # err = (recon - x).pow(2).mean(dim=1)
+            err = (recon - x).pow(2).topk(6, dim=1).values.mean(dim=1)
+            all_errors.append(err.cpu())  # Move to CPU to keep memory footprint low
 
     all_errors = torch.cat(all_errors)
 
     t = torch.quantile(all_errors, quantile)
     return t
 
-def plot_reconstruction_errors(errors, labels, threshold):
+
+def plot_reconstruction_errors(errors, labels, threshold, quantile):
     errors_np = errors.cpu().numpy()
     labels_np = labels.cpu().numpy()
     threshold = threshold.item()
@@ -82,18 +85,34 @@ def plot_reconstruction_errors(errors, labels, threshold):
     slow_clipped = len(slow_errors) - len(slow_in_range)
 
     plt.figure(figsize=(12, 6))
-    plt.hist(normal_in_range, bins=120, range=(0, plot_max), alpha=0.6, color="tab:blue", label=f"Normal (clipped: {normal_clipped})")
-    plt.hist(slow_in_range, bins=120, range=(0, plot_max), alpha=0.6, color="tab:orange", label=f"Slow (clipped: {slow_clipped})")
+    plt.hist(
+        normal_in_range,
+        bins=120,
+        range=(0, plot_max),
+        alpha=0.6,
+        color="tab:blue",
+        label=f"Normal (clipped: {normal_clipped})",
+    )
+    plt.hist(
+        slow_in_range,
+        bins=120,
+        range=(0, plot_max),
+        alpha=0.6,
+        color="tab:orange",
+        label=f"Slow (clipped: {slow_clipped})",
+    )
 
     if threshold <= plot_max:
         plt.axvline(threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold = {threshold:.6f}")
     else:
-        plt.axvline(plot_max, color="red", linestyle="--", linewidth=2, label=f"Threshold = {threshold:.6f} (out of range)")
+        plt.axvline(
+            plot_max, color="red", linestyle="--", linewidth=2, label=f"Threshold = {threshold:.6f} (out of range)"
+        )
 
     plt.xlim(0, plot_max)
     plt.xlabel("Reconstruction Error")
     plt.ylabel("Count")
-    plt.title("Reconstruction Error Distribution (Test Set, 95th Percentile Zoom)")
+    plt.title(f"Reconstruction Error Distribution (Test Set, {int(quantile*100)}th Percentile Zoom)")
     plt.legend()
     plt.tight_layout()
     plt.show()
