@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 
 class KukaDataset(Dataset):
 
-    def __init__(self, root_dir, normal_only=False, transform=None, dtype=torch.float32):
+    def __init__(self, root_dir, normal_only=False, transform=None, normalize=True, dtype=torch.float32):
         self.root_dir = Path(root_dir)
         self.transform = transform
 
@@ -20,12 +20,13 @@ class KukaDataset(Dataset):
         x_slow = slow[:, :-1]
         y_slow = slow[:, -1].astype(np.int64)
 
-        feature_mean = x_normal.mean(axis=0, keepdims=True)
-        feature_std = x_normal.std(axis=0, keepdims=True)
-        feature_std[feature_std < 1e-8] = 1.0
+        if normalize:
+            feature_mean = x_normal.mean(axis=0, keepdims=True)
+            feature_std = x_normal.std(axis=0, keepdims=True)
+            feature_std[feature_std < 1e-8] = 1.0
 
-        x_normal = (x_normal - feature_mean) / feature_std
-        x_slow = (x_slow - feature_mean) / feature_std
+            x_normal = (x_normal - feature_mean) / feature_std
+            x_slow = (x_slow - feature_mean) / feature_std
 
         self.x = np.concatenate([x_normal, x_slow], axis=0)
         self.y = np.concatenate([y_normal, y_slow], axis=0)
