@@ -31,6 +31,10 @@ def train(model, training_loader, device, lr=1e-3, epochs=500):
         print(f"Epoch {epoch + 1}: loss {running_loss / len(training_loader):.4f}")
 
 
+def err_fn(pred, x):
+    return (pred - x).pow(2).topk(6, dim=1).values.mean(dim=1)  # err = (pred - x).pow(2).mean(dim=1).cpu()
+
+
 DATA_DIR = "./data"
 
 dataset = KukaDataset(DATA_DIR)
@@ -53,7 +57,7 @@ torch.save(ae.state_dict(), "model_weights.pth")
 ae.load_state_dict(torch.load("model_weights.pth"))
 
 QUANTILE = 0.9
-t = compute_threshold(ae, val_loader, quantile=QUANTILE)
+t = compute_threshold(ae, val_loader, quantile=QUANTILE, err_fn=err_fn)
 print(f"Threshold: {t.item():.6f}")
 
 
@@ -66,8 +70,8 @@ with torch.no_grad():
     for x, y in test_loader:
         x = x.to(device)
         recon = ae(x)
-        # err = (recon - x).pow(2).mean(dim=1).cpu()
-        err = (recon - x).pow(2).topk(6, dim=1).values.mean(dim=1)
+
+        err = err_fn(recon, x)
         preds = (err > t).int()
 
         all_preds.append(preds.cpu())
