@@ -90,6 +90,7 @@ def plot_reconstruction_errors(errors, labels, threshold, quantile):
         range=(0, plot_max),
         alpha=0.6,
         color="tab:blue",
+        density=True,
         label=f"Normal (clipped: {normal_clipped})",
     )
     plt.hist(
@@ -98,6 +99,7 @@ def plot_reconstruction_errors(errors, labels, threshold, quantile):
         range=(0, plot_max),
         alpha=0.6,
         color="tab:orange",
+        density=True,
         label=f"Slow (clipped: {slow_clipped})",
     )
 
@@ -110,7 +112,7 @@ def plot_reconstruction_errors(errors, labels, threshold, quantile):
 
     plt.xlim(0, plot_max)
     plt.xlabel("Reconstruction Error")
-    plt.ylabel("Count")
+    plt.ylabel("Density")
     plt.title(f"Reconstruction Error Distribution (Test Set, {int(quantile*100)}th Percentile Zoom)")
     plt.legend()
     plt.tight_layout()
