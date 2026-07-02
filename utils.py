@@ -5,6 +5,22 @@ import numpy as np
 
 
 def split_kuka(dataset, train_ratio=0.7, val_ratio=0.15):
+    """Split the Kuka dataset into train, validation, and test sets.
+
+    Normal samples are split into train/val/test according to `train_ratio` and
+    `val_ratio` (the remainder goes to test), so the training set contains only
+    normal data. Anomalous samples are split 50/50 and added only to the
+    validation and test sets.
+
+    Args:
+        dataset: Dataset exposing a `y` tensor of labels (0 for normal, 1 for anomaly).
+        train_ratio: Fraction of normal samples used for training.
+        val_ratio: Fraction of normal samples used for validation. The
+            remaining normal samples go to the test set.
+
+    Returns:
+        tuple[Subset, Subset, Subset]: train, validation, and test datasets.
+    """
     labels = dataset.y
 
     normal_idx = torch.where(labels == 0)[0]
@@ -40,6 +56,24 @@ def split_kuka(dataset, train_ratio=0.7, val_ratio=0.15):
 
 
 def compute_threshold(model, dataloader, normal_label=0, quantile=0.95, err_fn=None):
+    """Compute the threshold as the given quantile of the reconstruction
+    error distribution of only normal samples.
+
+    Args:
+        model: Model to use for the threshold computation.
+        dataloader: Iterable of (x, y) batches, where `x` are the input samples
+            and `y` are their labels.
+        normal_label: Label value identifying normal (non-anomalous) samples.
+            Only samples with this label are used to compute the threshold.
+        quantile: Quantile (between 0 and 1) of the normal-sample error
+            distribution used as the threshold.
+        err_fn: Optional callable `err_fn(recon, x) -> Tensor` returning a
+            per-sample reconstruction error. If None, defaults to the mean
+            squared error per sample.
+
+    Returns:
+        float: The computed threshold.
+    """
     model.eval()
     device = next(model.parameters()).device
 
@@ -54,18 +88,17 @@ def compute_threshold(model, dataloader, normal_label=0, quantile=0.95, err_fn=N
             x = x[mask].to(device)
             recon = model(x)
             err = (recon - x).pow(2).mean(dim=1) if err_fn is None else err_fn(recon, x)
-            all_errors.append(err.cpu())  # Move to CPU to keep memory footprint low
+            all_errors.append(err.cpu())  # move to CPU to keep memory footprint low
 
     all_errors = torch.cat(all_errors)
 
     t = torch.quantile(all_errors, quantile)
-    return t
+    return t.item()
 
 
 def plot_reconstruction_errors(errors, labels, threshold, quantile):
     errors_np = errors.cpu().numpy()
     labels_np = labels.cpu().numpy()
-    threshold = threshold.item()
 
     if len(errors_np) != len(labels_np):
         raise ValueError(f"Errors and labels size mismatch: {len(errors_np)} vs {len(labels_np)}")

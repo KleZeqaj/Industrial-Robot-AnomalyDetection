@@ -14,7 +14,7 @@ print(f"Using device: {device}")
 
 def train(model, training_loader, device, lr=1e-3, epochs=500):
     reconstruct_loss_fn = torch.nn.MSELoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr)
 
     for epoch in range(epochs):
         model.train()
@@ -32,12 +32,13 @@ def train(model, training_loader, device, lr=1e-3, epochs=500):
 
 
 def err_fn(pred, x):
-    return (pred - x).pow(2).topk(6, dim=1).values.mean(dim=1)  # err = (pred - x).pow(2).mean(dim=1).cpu()
+    return (pred - x).pow(2).topk(5, dim=1).values.mean(dim=1)
+    # return (pred - x).pow(2).mean(dim=1).cpu()
 
 
 DATA_DIR = "./data"
 
-dataset = KukaDataset(DATA_DIR)
+dataset = KukaDataset(DATA_DIR, normalize=True)
 
 
 train_dataset, val_dataset, test_dataset = split_kuka(dataset)
@@ -49,16 +50,17 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 x, y = train_dataset[0]
 input_dim = x.shape[0]
-latent_dim = 4  # 8
+latent_dim = 4
 
+# best: lr=0.001, epochs=1500, latent_dim=4
 ae = AE(input_dim, latent_dim).to(device)
-train(ae, train_loader, device, lr=0.001, epochs=200)
-torch.save(ae.state_dict(), "model_weights.pth")
-ae.load_state_dict(torch.load("model_weights.pth"))
+# train(ae, train_loader, device, lr=0.001, epochs=1500)
+# torch.save(ae.state_dict(), "model_weights.pth")
+ae.load_state_dict(torch.load("ae_best.pth"))
 
-QUANTILE = 0.9
+QUANTILE = 0.85
 t = compute_threshold(ae, val_loader, quantile=QUANTILE, err_fn=err_fn)
-print(f"Threshold: {t.item():.6f}")
+print(f"Threshold: {t:.6f}")
 
 
 all_preds = []

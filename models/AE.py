@@ -6,16 +6,19 @@ class Encoder(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(Encoder, self).__init__()
         self.layers = nn.Sequential(
-            self._block(input_dim, 64),
-            self._block(64, 32),
-            self._block(32, 16),
+            self._block(input_dim, 72),
+            self._block(72, 64),
+            self._block(64, 56),
+            self._block(56, 48),
+            self._block(48, 32),
+            self._block(32, 24),
+            self._block(24, 16),
             nn.Linear(16, output_dim),
         )
 
     def _block(self, input_dim, output_dim):
         return nn.Sequential(
             nn.Linear(input_dim, output_dim),
-            # nn.BatchNorm1d(output_dim),
             nn.ReLU(),
         )
 
@@ -28,15 +31,18 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.layers = nn.Sequential(
             self._block(input_dim, 16),
-            self._block(16, 32),
-            self._block(32, 64),
-            nn.Linear(64, output_dim),
+            self._block(16, 24),
+            self._block(24, 32),
+            self._block(32, 48),
+            self._block(48, 56),
+            self._block(56, 64),
+            self._block(64, 72),
+            nn.Linear(72, output_dim),
         )
 
     def _block(self, input_dim, output_dim):
         return nn.Sequential(
             nn.Linear(input_dim, output_dim),
-            # nn.BatchNorm1d(output_dim),
             nn.ReLU(),
         )
 
