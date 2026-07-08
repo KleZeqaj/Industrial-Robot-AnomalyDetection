@@ -3,12 +3,50 @@ from datetime import datetime
 import os
 
 import torch
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    roc_auc_score,
+    average_precision_score,
+)
 from torch.utils.data import DataLoader
 
 from dataset.kuka_dataset import KukaDataset
+from dataset.kuka_splits import split_kuka_numpy
 from models.AE import AE
-from utils import compute_threshold, split_kuka, plot_reconstruction_errors
+from processing.kuka_processing import KukaPreprocessor
+from utils import compute_threshold, plot_reconstruction_errors
+
+
+
+
+def error_distribution_report(all_errors, all_labels, name="model"):
+    y = all_labels.numpy()
+    s = all_errors.numpy()
+
+    normal_errors = all_errors[all_labels == 0]
+    anomaly_errors = all_errors[all_labels == 1]
+
+    roc_auc = roc_auc_score(y, s)
+    pr_auc = average_precision_score(y, s)
+
+    print(f"\n=== {name} ===")
+    print(f"ROC-AUC: {roc_auc:.4f}")
+    print(f"PR-AUC : {pr_auc:.4f}")
+
+    for label_name, e in [("Normal", normal_errors), ("Anomaly", anomaly_errors)]:
+        qs = torch.quantile(
+            e,
+            torch.tensor([0.50, 0.75, 0.90, 0.95, 0.99])
+        )
+
+        print(f"\n{label_name} errors")
+        print(f"mean: {e.mean().item():.6f}")
+        print(f"q50 : {qs[0].item():.6f}")
+        print(f"q75 : {qs[1].item():.6f}")
+        print(f"q90 : {qs[2].item():.6f}")
+        print(f"q95 : {qs[3].item():.6f}")
+        print(f"q99 : {qs[4].item():.6f}")
 
 
 def parse_args():
@@ -48,16 +86,29 @@ def get_device():
     return device
 
 
-def build_dataloaders(data_dir, batch_size):
-    dataset = KukaDataset(data_dir, normalize=True)
-    train_dataset, val_dataset, test_dataset = split_kuka(dataset)
+def build_dataloaders(data_dir, batch_size, seed=None):
+    splits = split_kuka_numpy(data_dir, seed=seed)
+
+    preprocessor = KukaPreprocessor(
+        standardize=True,
+        remove_constant=True,
+        corr_threshold=0.98,
+        clip_percentiles=None,
+    )
+
+    x_train = preprocessor.fit_transform(splits.x_train)
+    x_val = preprocessor.transform(splits.x_val)
+    x_test = preprocessor.transform(splits.x_test)
+
+    train_dataset = KukaDataset(x_train, splits.y_train)
+    val_dataset = KukaDataset(x_val, splits.y_val)
+    test_dataset = KukaDataset(x_test, splits.y_test)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    return train_dataset, train_loader, val_loader, test_loader
-
+    return train_dataset, train_loader, val_loader, test_loader, preprocessor
 
 def err_fn(pred, x, top_k):
     return (pred - x).pow(2).topk(top_k, dim=1).values.mean(dim=1)
@@ -126,7 +177,11 @@ def main():
 
     device = get_device()
 
-    train_dataset, train_loader, val_loader, test_loader = build_dataloaders(args.data_dir, args.batch_size)
+    train_dataset, train_loader, val_loader, test_loader, _ = build_dataloaders(
+        args.data_dir,
+        args.batch_size,
+        seed=args.seed,
+    )
 
     x, _ = train_dataset[0]
     input_dim = x.shape[0]
@@ -152,6 +207,7 @@ def main():
     print(f"Threshold: {t:.6f}")
 
     all_preds, all_labels, all_errors = evaluate(ae, test_loader, device, t, args.top_k)
+    error_distribution_report(all_errors, all_labels, name="current run")
     report_results(all_preds, all_labels)
     plot_reconstruction_errors(all_errors, all_labels, t, quantile=args.quantile)
 

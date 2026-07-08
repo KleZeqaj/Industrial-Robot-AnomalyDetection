@@ -1,58 +1,9 @@
 import torch
-from torch.utils.data import Subset
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-def split_kuka(dataset, train_ratio=0.7, val_ratio=0.15):
-    """Split the Kuka dataset into train, validation, and test sets.
-
-    Normal samples are split into train/val/test according to `train_ratio` and
-    `val_ratio` (the remainder goes to test), so the training set contains only
-    normal data. Anomalous samples are split 50/50 and added only to the
-    validation and test sets.
-
-    Args:
-        dataset: Dataset exposing a `y` tensor of labels (0 for normal, 1 for anomaly).
-        train_ratio: Fraction of normal samples used for training.
-        val_ratio: Fraction of normal samples used for validation. The
-            remaining normal samples go to the test set.
-
-    Returns:
-        tuple[Subset, Subset, Subset]: train, validation, and test datasets.
-    """
-    labels = dataset.y
-
-    normal_idx = torch.where(labels == 0)[0]
-    anomaly_idx = torch.where(labels == 1)[0]
-
-    # shuffle normal data
-    perm = torch.randperm(len(normal_idx))
-    normal_idx = normal_idx[perm]
-
-    # split normal into train / val / test
-    n_total = len(normal_idx)
-    n_train = int(train_ratio * n_total)
-    n_val = int(val_ratio * n_total)
-    n_test = n_total - n_train - n_val
-
-    train_normal_idx = normal_idx[:n_train]
-    val_normal_idx = normal_idx[n_train : n_train + n_val]
-    test_normal_idx = normal_idx[n_train + n_val :]
-
-    # build anomaly splits: split anomalies separately
-    perm_anom = torch.randperm(len(anomaly_idx))
-    anomaly_idx = anomaly_idx[perm_anom]
-
-    n_val_anom = int(0.5 * len(anomaly_idx))
-    val_anomaly_idx = anomaly_idx[:n_val_anom]
-    test_anomaly_idx = anomaly_idx[n_val_anom:]
-
-    train_dataset = Subset(dataset, train_normal_idx)
-    val_dataset = Subset(dataset, torch.cat([val_normal_idx, val_anomaly_idx]))
-    test_dataset = Subset(dataset, torch.cat([test_normal_idx, test_anomaly_idx]))
-
-    return train_dataset, val_dataset, test_dataset
 
 
 def compute_threshold(model, dataloader, normal_label=0, quantile=0.95, err_fn=None):
