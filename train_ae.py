@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, default=1024, help="Batch size for the data loaders.")
     parser.add_argument("--latent-dim", type=int, default=4, help="Dimensionality of the autoencoder latent space.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for the optimizer.")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
+    parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
     parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
     parser.add_argument(
         "--top-k", type=int, default=5, help="Number of top errors averaged in the reconstruction error function."
@@ -36,7 +36,7 @@ def parse_args():
         "--preprocess",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Whether to apply preprocessing (standardization excluded).",
+        help="Whether to apply preprocessing (normalization excluded).",
     )
     parser.add_argument(
         "--weights-out",
@@ -92,14 +92,14 @@ def build_dataloaders(data_dir, batch_size, seed=None, preprocess=True):
 
     if preprocess:
         preprocessor = KukaPreprocessor(
-            standardize=True,
-            remove_constant=True,
+            normalization=True,
+            remove_constant=False,
             corr_threshold=0.98,
             clip_percentiles=None,
         )
     else:
         preprocessor = KukaPreprocessor(
-            standardize=True,
+            normalization=True,
             remove_constant=False,
             corr_threshold=None,
             clip_percentiles=None,

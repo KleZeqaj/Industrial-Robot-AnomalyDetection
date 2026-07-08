@@ -1,15 +1,16 @@
 import numpy as np
 
+
 class KukaPreprocessor:
     def __init__(
         self,
-        standardize=True,
+        normalization=True,
         remove_constant=False,
         constant_eps=1e-8,
         corr_threshold=None,
         clip_percentiles=None,
     ):
-        self.standardize = standardize
+        self.normalization = normalization
         self.remove_constant = remove_constant
         self.constant_eps = constant_eps
         self.corr_threshold = corr_threshold
@@ -18,7 +19,7 @@ class KukaPreprocessor:
     def fit(self, x_train):
         x = np.asarray(x_train)
 
-        # 1. feature costanti, solo da train normal
+        # 1. constant features
         if self.remove_constant:
             std = x.std(axis=0)
             self.constant_mask_ = std > self.constant_eps
@@ -27,14 +28,14 @@ class KukaPreprocessor:
 
         x = x[:, self.constant_mask_]
 
-        # 2. feature altamente correlate, solo da train normal
+        # 2. highly correlated features
         if self.corr_threshold is not None:
             corr = np.corrcoef(x, rowvar=False)
             corr = np.nan_to_num(np.abs(corr), nan=0.0)
 
             upper = np.triu(corr, k=1)
 
-            # drop della feature j se è correlata con una feature precedente i
+            # dropping j_th feature if correlated with previous i_th
             drop = np.any(upper > self.corr_threshold, axis=0)
             self.corr_mask_ = ~drop
         else:
@@ -42,7 +43,7 @@ class KukaPreprocessor:
 
         x = x[:, self.corr_mask_]
 
-        # 3. clipping opzionale, sempre stimato solo da train normal
+        # 3. clipping
         if self.clip_percentiles is not None:
             low, high = self.clip_percentiles
             self.q_low_ = np.percentile(x, low, axis=0)
@@ -53,14 +54,17 @@ class KukaPreprocessor:
             self.q_high_ = None
             x_for_stats = x
 
-        # 4. standardizzazione, solo da train normal
-        if self.standardize:
-            self.mean_ = x_for_stats.mean(axis=0, keepdims=True)
-            self.std_ = x_for_stats.std(axis=0, keepdims=True)
-            self.std_[self.std_ < self.constant_eps] = 1.0
+        # 4. normalization
+        if self.normalization:
+            self.min = x_for_stats.min(axis=0, keepdims=True)
+            self.max = x_for_stats.max(axis=0, keepdims=True)
+            self.range = self.max - self.min
+            self.range[self.range < self.constant_eps] = 1.0
+
         else:
-            self.mean_ = None
-            self.std_ = None
+            self.min = None
+            self.max = None
+            self.range = None
 
         return self
 
@@ -73,8 +77,8 @@ class KukaPreprocessor:
         if self.clip_percentiles is not None:
             x = np.clip(x, self.q_low_, self.q_high_)
 
-        if self.standardize:
-            x = (x - self.mean_) / self.std_
+        if self.normalization:
+            x = (x - self.min) / self.range
 
         return x.astype(np.float32)
 
