@@ -16,6 +16,7 @@ from dataset.kuka_splits import split_kuka_numpy
 from models.AE import AE
 from processing.kuka_processing import KukaPreprocessor
 from utils import compute_threshold, plot_reconstruction_errors
+from metrics import compute_pointwise_metrics
 
 
 def parse_args():
@@ -169,14 +170,54 @@ def evaluate(model, test_loader, device, threshold, top_k):
     return all_preds, all_labels, all_errors
 
 
-def report_results(all_preds, all_labels):
-    print(f"Anomalies detected: {(all_preds[all_labels == 1]).sum().item()} / {(all_labels == 1).sum().item()}")
+def report_results(all_preds, all_labels, metrics):
+    detected_anomalies = (
+        all_preds[all_labels == 1]
+    ).sum().item()
 
-    cm = confusion_matrix(all_labels.numpy(), all_preds.numpy(), labels=[0, 1])
-    print("Confusion Matrix:")
+    total_anomalies = (
+        all_labels == 1
+    ).sum().item()
+
+    print(
+        f"Anomalies detected: "
+        f"{detected_anomalies} / {total_anomalies}"
+    )
+
+    cm = confusion_matrix(
+        all_labels.numpy(),
+        all_preds.numpy(),
+        labels=[0, 1],
+    )
+
+    print("\nConfusion Matrix:")
     print(cm)
 
-    print(classification_report(all_labels.numpy(), all_preds.numpy(), target_names=["Normal", "Anomaly"]))
+    print("\nClassification Report:")
+    print(
+        classification_report(
+            all_labels.numpy(),
+            all_preds.numpy(),
+            target_names=["Normal", "Anomaly"],
+            zero_division=0,
+        )
+    )
+
+    print("\nPoint-wise Metrics:")
+    print(f"Precision:         {metrics['precision']:.6f}")
+    print(f"Recall:            {metrics['recall']:.6f}")
+    print(f"F1:                {metrics['f1']:.6f}")
+    print(f"F2:                {metrics['f_2']:.6f}")
+    print(f"Accuracy:          {metrics['accuracy']:.6f}")
+    print(
+        f"Balanced Accuracy: "
+        f"{metrics['balanced_accuracy']:.6f}"
+    )
+    print(f"PR-AUC:            {metrics['pr_auc']:.6f}")
+    print(
+        f"Average Precision: "
+        f"{metrics['average_precision']:.6f}"
+    )
 
 
 def main():
@@ -218,10 +259,9 @@ def main():
     print(f"Threshold: {t:.6f}")
 
     all_preds, all_labels, all_errors = evaluate(ae, test_loader, device, t, args.top_k)
-    error_distribution_report(all_errors, all_labels, name="current run")
-    report_results(all_preds, all_labels)
+    metrics = compute_pointwise_metrics(all_labels, all_preds, all_errors, 2.0)
+    report_results(all_preds, all_labels, metrics)
     plot_reconstruction_errors(all_errors, all_labels, t, quantile=args.quantile)
-
 
 if __name__ == "__main__":
     main()
