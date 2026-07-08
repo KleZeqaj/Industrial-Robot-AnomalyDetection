@@ -18,6 +18,41 @@ from processing.kuka_processing import KukaPreprocessor
 from utils import compute_threshold, plot_reconstruction_errors
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate autoencoder model for anomaly detection on the Kuka dataset."
+    )
+
+    parser.add_argument("--data-dir", type=str, default="./data", help="Path to the dataset directory.")
+    parser.add_argument("--batch-size", type=int, default=1024, help="Batch size for the data loaders.")
+    parser.add_argument("--latent-dim", type=int, default=4, help="Dimensionality of the autoencoder latent space.")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for the optimizer.")
+    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
+    parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
+    parser.add_argument(
+        "--top-k", type=int, default=5, help="Number of top errors averaged in the reconstruction error function."
+    )
+    parser.add_argument(
+        "--preprocess",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to apply preprocessing (standardization excluded).",
+    )
+    parser.add_argument(
+        "--weights-out",
+        type=str,
+        default=f"weights/ae_weights_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth",
+        help="Path to save the trained model weights.",
+    )
+    parser.add_argument(
+        "--weights-in",
+        type=str,
+        default=None,
+        help="Path to the weights loaded for evaluation. If provided, training is skipped.",
+    )
+    parser.add_argument("--seed", type=int, default=123, help="Optional random seed for reproducibility.")
+
+    return parser.parse_args()
 
 
 def error_distribution_report(all_errors, all_labels, name="model"):
@@ -35,10 +70,7 @@ def error_distribution_report(all_errors, all_labels, name="model"):
     print(f"PR-AUC : {pr_auc:.4f}")
 
     for label_name, e in [("Normal", normal_errors), ("Anomaly", anomaly_errors)]:
-        qs = torch.quantile(
-            e,
-            torch.tensor([0.50, 0.75, 0.90, 0.95, 0.99])
-        )
+        qs = torch.quantile(e, torch.tensor([0.50, 0.75, 0.90, 0.95, 0.99]))
 
         print(f"\n{label_name} errors")
         print(f"mean: {e.mean().item():.6f}")
@@ -49,52 +81,29 @@ def error_distribution_report(all_errors, all_labels, name="model"):
         print(f"q99 : {qs[4].item():.6f}")
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Train and evaluate autoencoder model for anomaly detection on the Kuka dataset."
-    )
-
-    parser.add_argument("--data-dir", type=str, default="./data", help="Path to the dataset directory.")
-    parser.add_argument("--batch-size", type=int, default=1024, help="Batch size for the data loaders.")
-    parser.add_argument("--latent-dim", type=int, default=4, help="Dimensionality of the autoencoder latent space.")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for the optimizer.")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
-    parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
-    parser.add_argument(
-        "--top-k", type=int, default=5, help="Number of top errors averaged in the reconstruction error function."
-    )
-    parser.add_argument(
-        "--weights-out",
-        type=str,
-        default=f"weights/ae_weights_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth",
-        help="Path to save the trained model weights.",
-    )
-    parser.add_argument(
-        "--weights-in",
-        type=str,
-        default=None,
-        help="Path to the weights loaded for evaluation. If provided, training is skipped.",
-    )
-    parser.add_argument("--seed", type=int, default=None, help="Optional random seed for reproducibility.")
-
-    return parser.parse_args()
-
-
 def get_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     return device
 
 
-def build_dataloaders(data_dir, batch_size, seed=None):
+def build_dataloaders(data_dir, batch_size, seed=None, preprocess=True):
     splits = split_kuka_numpy(data_dir, seed=seed)
 
-    preprocessor = KukaPreprocessor(
-        standardize=True,
-        remove_constant=True,
-        corr_threshold=0.98,
-        clip_percentiles=None,
-    )
+    if preprocess:
+        preprocessor = KukaPreprocessor(
+            standardize=True,
+            remove_constant=True,
+            corr_threshold=0.98,
+            clip_percentiles=None,
+        )
+    else:
+        preprocessor = KukaPreprocessor(
+            standardize=True,
+            remove_constant=False,
+            corr_threshold=None,
+            clip_percentiles=None,
+        )
 
     x_train = preprocessor.fit_transform(splits.x_train)
     x_val = preprocessor.transform(splits.x_val)
@@ -109,6 +118,7 @@ def build_dataloaders(data_dir, batch_size, seed=None):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_dataset, train_loader, val_loader, test_loader, preprocessor
+
 
 def err_fn(pred, x, top_k):
     return (pred - x).pow(2).topk(top_k, dim=1).values.mean(dim=1)
@@ -178,9 +188,10 @@ def main():
     device = get_device()
 
     train_dataset, train_loader, val_loader, test_loader, _ = build_dataloaders(
-        args.data_dir,
-        args.batch_size,
+        data_dir=args.data_dir,
+        batch_size=args.batch_size,
         seed=args.seed,
+        preprocess=args.preprocess,
     )
 
     x, _ = train_dataset[0]
