@@ -38,6 +38,10 @@ def compute_threshold(model, dataloader, normal_label=0, quantile=0.95, err_fn=N
 
             x = x[mask].to(device)
             recon = model(x)
+
+            if  isinstance(recon, tuple):
+                recon = recon[0]
+
             err = (recon - x).pow(2).mean(dim=1) if err_fn is None else err_fn(recon, x)
             all_errors.append(err.cpu())  # move to CPU to keep memory footprint low
 
