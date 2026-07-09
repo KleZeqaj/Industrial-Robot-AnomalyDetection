@@ -4,6 +4,7 @@ import os
 
 import torch
 import torch.nn as nn
+
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
@@ -30,7 +31,14 @@ def parse_args():
     parser.add_argument("--lr_ae", type=float, default=1e-3, help="Learning rate for the autoencoder optimizer.")
     parser.add_argument("--lr_d", type=float, default=1e-3, help="Learning rate for the discriminator optimizer.")
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
+    parser.add_argument(
+        "--pretrain-epochs",
+        type=int,
+        default=30,
+        help="Number of epochs for the reconstruction-only pretraining phase (encoder + decoder), run before adversarial training.",
+    )
     parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
+    parser.add_argument("--lambda-adv", type=float, default=0.001, help="Learning rate for the discriminator optimizer.")
     parser.add_argument(
         "--top-k", type=int, default=5, help="Number of top errors averaged in the reconstruction error function."
     )
@@ -127,6 +135,56 @@ def err_fn(pred, x, top_k):
     return (pred - x).pow(2).topk(top_k, dim=1).values.mean(dim=1)
 
 
+def pretrain_ae(
+    model,
+    train_loader,
+    epochs,
+    device,
+    lr_ae=1e-3,
+):
+    """Reconstruction-only pretraining of the encoder + decoder.
+
+    The discriminator is left untouched at this stage; this phase simply
+    gives the autoencoder a good starting point before adversarial
+    (AAE) training begins.
+    """
+    model.to(device)
+
+    reconstruction_loss_fn = nn.MSELoss()
+
+    optimizer_ae = torch.optim.Adam(
+        list(model.encoder.parameters()) + list(model.decoder.parameters()),
+        lr=lr_ae
+    )
+
+    history = {"reconstruction_loss": []}
+
+    for epoch in range(epochs):
+        model.train()
+
+        epoch_recon_loss = 0.0
+
+        for x, _ in train_loader:
+            x = x.float().to(device)
+
+            optimizer_ae.zero_grad()
+
+            x_hat, _ = model(x)
+            recon_loss = reconstruction_loss_fn(x_hat, x)
+
+            recon_loss.backward()
+            optimizer_ae.step()
+
+            epoch_recon_loss += recon_loss.item()
+
+        epoch_recon_loss /= len(train_loader)
+        history["reconstruction_loss"].append(epoch_recon_loss)
+
+        print(f"[Pretrain] Epoch [{epoch + 1}/{epochs}] Recon Loss: {epoch_recon_loss:.6f}")
+
+    return history
+
+
 def train_aae(
     model,
     train_loader,
@@ -151,6 +209,8 @@ def train_aae(
         lr=lr_d
     )
 
+    optimizer_g = torch.optim.Adam(model.encoder.parameters(), lr=lr_ae)
+
     history = {
         "reconstruction_loss": [],
         "discriminator_loss": [],
@@ -163,6 +223,8 @@ def train_aae(
         epoch_recon_loss = 0.0
         epoch_d_loss = 0.0
         epoch_g_loss = 0.0
+        epoch_z_mean = 0.0
+        epoch_z_std = 0.0
 
         for x, _ in train_loader:
 
@@ -205,22 +267,31 @@ def train_aae(
 
 
             # 3. Generator phase: train encoder to fool discriminator
-            optimizer_ae.zero_grad()
+            optimizer_g.zero_grad()
 
-            z_fake = model.encoder(x)
+            _, z_fake = model(x)
             d_fake_logits = model.discriminator(z_fake)
+
+            # Recompute reconstruction loss fresh here: the original recon_loss's
+            # graph was already freed by the .backward() call in phase 1, so it
+            # can't be reused in a second backward() call without retain_graph.
+            #recon_loss_g = reconstruction_loss_fn(x_hat_g, x)
 
             # Encoder wants the discriminator to classify encoded z as real
             g_loss = adversarial_loss_fn(d_fake_logits, real_labels)
 
             adversarial_encoder_loss = lambda_adv * g_loss
             adversarial_encoder_loss.backward()
-            optimizer_ae.step()
+            optimizer_g.step()
 
             epoch_recon_loss += recon_loss.item()
             epoch_d_loss += d_loss.item()
             epoch_g_loss += g_loss.item()
+            epoch_z_mean += z_fake.detach().mean().item()
+            epoch_z_std += z_fake.detach().std().item()
 
+        epoch_z_mean /= len(train_loader)
+        epoch_z_std /= len(train_loader)
         epoch_recon_loss /= len(train_loader)
         epoch_d_loss /= len(train_loader)
         epoch_g_loss /= len(train_loader)
@@ -233,7 +304,9 @@ def train_aae(
             f"Epoch [{epoch + 1}/{epochs}] "
             f"Recon Loss: {epoch_recon_loss:.6f} | "
             f"D Loss: {epoch_d_loss:.6f} | "
-            f"G Loss: {epoch_g_loss:.6f}"
+            f"G Loss: {epoch_g_loss:.6f} |"
+            f"z mean: {epoch_z_mean} |"
+            f"z std: {epoch_z_std}"
         )
 
     return history
@@ -300,7 +373,11 @@ def main():
         print(f"Loading pre-trained weights from {args.weights_in}, skipping training.")
         aae.load_state_dict(torch.load(args.weights_in, map_location=device))
     else:
-        train_aae(aae, train_loader, epochs=args.epochs, device=device, lr_ae=args.lr_ae, lr_d=args.lr_d)
+        if args.pretrain_epochs > 0:
+            print(f"Pretraining autoencoder (reconstruction only) for {args.pretrain_epochs} epochs...")
+            pretrain_ae(aae, train_loader, epochs=args.pretrain_epochs, device=device, lr_ae=args.lr_ae)
+
+        train_aae(aae, train_loader, epochs=args.epochs, device=device, lr_ae=args.lr_ae, lr_d=args.lr_d, lambda_adv=args.lambda_adv)
         output_dir = os.path.dirname(args.weights_out)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
@@ -318,6 +395,9 @@ def main():
     error_distribution_report(all_errors, all_labels, name="current run")
     report_results(all_preds, all_labels)
     plot_reconstruction_errors(all_errors, all_labels, t, quantile=args.quantile)
+
+
+
 
 
 if __name__ == "__main__":
