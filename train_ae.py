@@ -34,12 +34,6 @@ def parse_args():
         "--top-k", type=int, default=5, help="Number of top errors averaged in the reconstruction error function."
     )
     parser.add_argument(
-        "--preprocess",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Whether to apply preprocessing (normalization excluded).",
-    )
-    parser.add_argument(
         "--weights-out",
         type=str,
         default=f"weights/ae_weights_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth",
@@ -88,23 +82,15 @@ def get_device():
     return device
 
 
-def build_dataloaders(data_dir, batch_size, seed=None, preprocess=True):
+def build_dataloaders(data_dir, batch_size, seed=None):
     splits = split_kuka_numpy(data_dir, seed=seed)
 
-    if preprocess:
-        preprocessor = KukaPreprocessor(
-            normalization=True,
-            remove_constant=False,
-            corr_threshold=0.98,
-            clip_percentiles=None,
-        )
-    else:
-        preprocessor = KukaPreprocessor(
-            normalization=True,
-            remove_constant=False,
-            corr_threshold=None,
-            clip_percentiles=None,
-        )
+    preprocessor = KukaPreprocessor(
+        normalization=True,
+        remove_constant=False,
+        corr_threshold=0.98,
+        clip_percentiles=None,
+    )
 
     x_train = preprocessor.fit_transform(splits.x_train)
     x_val = preprocessor.transform(splits.x_val)
@@ -171,18 +157,11 @@ def evaluate(model, test_loader, device, threshold, top_k):
 
 
 def report_results(all_preds, all_labels, metrics):
-    detected_anomalies = (
-        all_preds[all_labels == 1]
-    ).sum().item()
+    detected_anomalies = (all_preds[all_labels == 1]).sum().item()
 
-    total_anomalies = (
-        all_labels == 1
-    ).sum().item()
+    total_anomalies = (all_labels == 1).sum().item()
 
-    print(
-        f"Anomalies detected: "
-        f"{detected_anomalies} / {total_anomalies}"
-    )
+    print(f"Anomalies detected: " f"{detected_anomalies} / {total_anomalies}")
 
     cm = confusion_matrix(
         all_labels.numpy(),
@@ -209,15 +188,9 @@ def report_results(all_preds, all_labels, metrics):
     print(f"F1:                {metrics['f1']:.6f}")
     print(f"F2:                {metrics['f_2']:.6f}")
     print(f"Accuracy:          {metrics['accuracy']:.6f}")
-    print(
-        f"Balanced Accuracy: "
-        f"{metrics['balanced_accuracy']:.6f}"
-    )
+    print(f"Balanced Accuracy: " f"{metrics['balanced_accuracy']:.6f}")
     print(f"PR-AUC:            {metrics['pr_auc']:.6f}")
-    print(
-        f"Average Precision: "
-        f"{metrics['average_precision']:.6f}"
-    )
+    print(f"Average Precision: " f"{metrics['average_precision']:.6f}")
 
 
 def main():
@@ -232,7 +205,6 @@ def main():
         data_dir=args.data_dir,
         batch_size=args.batch_size,
         seed=args.seed,
-        preprocess=args.preprocess,
     )
 
     x, _ = train_dataset[0]
@@ -262,6 +234,7 @@ def main():
     metrics = compute_pointwise_metrics(all_labels, all_preds, all_errors, 2.0)
     report_results(all_preds, all_labels, metrics)
     plot_reconstruction_errors(all_errors, all_labels, t, quantile=args.quantile)
+
 
 if __name__ == "__main__":
     main()
