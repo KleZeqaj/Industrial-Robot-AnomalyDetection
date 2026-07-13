@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-
-
 def compute_threshold(model, dataloader, normal_label=0, quantile=0.95, err_fn=None):
     """Compute the threshold as the given quantile of the reconstruction
     error distribution of only normal samples.
@@ -39,7 +37,7 @@ def compute_threshold(model, dataloader, normal_label=0, quantile=0.95, err_fn=N
             x = x[mask].to(device)
             recon = model(x)
 
-            if  isinstance(recon, tuple):
+            if isinstance(recon, tuple):
                 recon = recon[0]
 
             err = (recon - x).pow(2).mean(dim=1) if err_fn is None else err_fn(recon, x)
@@ -102,6 +100,71 @@ def plot_reconstruction_errors(errors, labels, threshold, quantile):
     plt.xlabel("Reconstruction Error")
     plt.ylabel("Density")
     plt.title(f"Reconstruction Error Distribution (Test Set, {int(quantile*100)}th Percentile Zoom)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_scores(scores, labels, threshold, title="Score Distribution"):
+    scores_np = scores.cpu().numpy()
+    labels_np = labels.cpu().numpy()
+
+    if len(scores_np) != len(labels_np):
+        raise ValueError(f"Scores and labels size mismatch: {len(scores_np)} vs {len(labels_np)}")
+
+    normal_scores = scores_np[labels_np == 0]
+    anomaly_scores = scores_np[labels_np == 1]
+
+    # Ignore only the most extreme 0.1% on each side
+    plot_min = np.percentile(scores_np, 0.1)
+    plot_max = np.percentile(scores_np, 99.9)
+
+    # Fallback in degenerate cases
+    if plot_min == plot_max:
+        plot_min = scores_np.min()
+        plot_max = scores_np.max()
+
+    normal_in_range = normal_scores[(normal_scores >= plot_min) & (normal_scores <= plot_max)]
+    anomaly_in_range = anomaly_scores[(anomaly_scores >= plot_min) & (anomaly_scores <= plot_max)]
+
+    normal_clipped = len(normal_scores) - len(normal_in_range)
+    anomaly_clipped = len(anomaly_scores) - len(anomaly_in_range)
+
+    plt.figure(figsize=(12, 6))
+
+    plt.hist(
+        normal_in_range,
+        bins=500,
+        range=(plot_min, plot_max),
+        density=True,
+        alpha=0.6,
+        color="tab:blue",
+        label=f"Normal (clipped: {normal_clipped})",
+    )
+
+    plt.hist(
+        anomaly_in_range,
+        bins=500,
+        range=(plot_min, plot_max),
+        density=True,
+        alpha=0.6,
+        color="tab:orange",
+        label=f"Anomaly (clipped: {anomaly_clipped})",
+    )
+
+    if plot_min <= threshold <= plot_max:
+        plt.axvline(
+            threshold,
+            color="red",
+            linestyle="--",
+            linewidth=2,
+            label=f"Threshold = {threshold:.4f}",
+        )
+
+    plt.xlim(plot_min, plot_max)
+    plt.xlabel("Score")
+    plt.ylabel("Density")
+    plt.title(title)
     plt.legend()
     plt.tight_layout()
     plt.show()
