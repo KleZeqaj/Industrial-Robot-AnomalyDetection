@@ -37,7 +37,14 @@ def parse_args():
         "--lr_g", type=float, default=1e-4, help="Learning rate for the generator (ae encoder) optimizer."
     )
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
+    parser.add_argument(
+        "--pretrain-epochs",
+        type=int,
+        default=30,
+        help="Number of epochs for the reconstruction-only pretraining phase (encoder + decoder), run before adversarial training.",
+    )
     parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
+    parser.add_argument("--lambda-adv", type=float, default=0.001, help="Learning rate for the discriminator optimizer.")
     parser.add_argument(
         "--pretrain-epochs",
         type=int,
@@ -180,6 +187,8 @@ def train(model, train_loader, epochs, device, lr_ae=1e-3, lr_g=1e-3, lr_d=1e-3)
         epoch_recon_loss = 0.0
         epoch_d_loss = 0.0
         epoch_g_loss = 0.0
+        epoch_z_mean = 0.0
+        epoch_z_std = 0.0
 
         for x, _ in train_loader:
 
@@ -237,6 +246,8 @@ def train(model, train_loader, epochs, device, lr_ae=1e-3, lr_g=1e-3, lr_d=1e-3)
             epoch_d_loss += Ld_total.item()
             epoch_g_loss += Lg.item()
 
+        epoch_z_mean /= len(train_loader)
+        epoch_z_std /= len(train_loader)
         epoch_recon_loss /= len(train_loader)
         epoch_d_loss /= len(train_loader)
         epoch_g_loss /= len(train_loader)
@@ -249,7 +260,9 @@ def train(model, train_loader, epochs, device, lr_ae=1e-3, lr_g=1e-3, lr_d=1e-3)
             f"Epoch [{epoch + 1}/{epochs}] "
             f"Recon Loss: {epoch_recon_loss:.6f} | "
             f"D Loss: {epoch_d_loss:.6f} | "
-            f"G Loss: {epoch_g_loss:.6f}"
+            f"G Loss: {epoch_g_loss:.6f} |"
+            f"z mean: {epoch_z_mean} |"
+            f"z std: {epoch_z_std}"
         )
 
     return history
@@ -450,6 +463,9 @@ def main():
 
     report_results(preds, labels, compute_pointwise_metrics(labels, preds, scores))
     plot_scores(scores, labels, threshold=t, title="Fusion Score")
+
+
+
 
 
 if __name__ == "__main__":
