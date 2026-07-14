@@ -1,5 +1,5 @@
 import torch
-
+import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -104,7 +104,6 @@ def plot_reconstruction_errors(errors, labels, threshold, quantile):
     plt.tight_layout()
     plt.show()
 
-
 def plot_scores(scores, labels, threshold, title="Score Distribution"):
     scores_np = scores.cpu().numpy()
     labels_np = labels.cpu().numpy()
@@ -115,12 +114,20 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
     normal_scores = scores_np[labels_np == 0]
     anomaly_scores = scores_np[labels_np == 1]
 
-    # Ignore only the most extreme 0.1% on each side
-    plot_min = np.percentile(scores_np, 0.1)
-    plot_max = np.percentile(scores_np, 99.9)
+    plot_min = np.min(scores_np)
+
+    norm_upper = np.percentile(normal_scores, 99.5) if len(normal_scores) > 0 else 0
+    anom_upper = np.percentile(anomaly_scores, 75) if len(anomaly_scores) > 0 else 0 # cap anomalies distr to 75%, everything after is discarded
+    
+    # Set the upper bound to view the decision boundary and the bulk of both distributions
+    plot_max = max(norm_upper * 1.5, anom_upper)
+
+    # Safeguard: Ensure the threshold is always comfortably visible in the plot
+    if threshold > plot_max and threshold < scores_np.max():
+        plot_max = threshold * 1.25
 
     # Fallback in degenerate cases
-    if plot_min == plot_max:
+    if plot_min >= plot_max:
         plot_min = scores_np.min()
         plot_max = scores_np.max()
 
@@ -134,7 +141,7 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
 
     plt.hist(
         normal_in_range,
-        bins=500,
+        bins=150, 
         range=(plot_min, plot_max),
         density=True,
         alpha=0.6,
@@ -144,7 +151,7 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
 
     plt.hist(
         anomaly_in_range,
-        bins=500,
+        bins=150,
         range=(plot_min, plot_max),
         density=True,
         alpha=0.6,
@@ -167,4 +174,55 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
     plt.title(title)
     plt.legend()
     plt.tight_layout()
+    plt.show()
+
+def plot_latent(model, dataloader, latent_dim, title=""):
+
+    model.eval()
+    device = next(model.parameters()).device
+
+    all_z = []
+    all_labels = []
+
+    with torch.no_grad():
+        for x, y in dataloader:
+            x = x.to(device)
+
+            z = model.encoder(x)
+
+            all_z.append(z.cpu())
+            all_labels.append(y)
+
+    all_z = torch.cat(all_z).numpy()
+    all_labels = torch.cat(all_labels).numpy()
+
+    pairs = list(itertools.combinations(range(latent_dim), 2))
+
+    ncols = 4
+    nrows = (len(pairs) + ncols - 1) // ncols
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 4 * nrows))
+
+    axes = axes.flatten()
+
+    for ax, (i, j) in zip(axes, pairs):
+
+        normal = all_labels == 0
+        anomaly = all_labels == 1
+
+        ax.scatter(all_z[normal, i], all_z[normal, j], s=3, alpha=0.3, label="Normal")
+        ax.scatter(all_z[anomaly, i], all_z[anomaly, j], s=3, alpha=0.3, label="Anomaly")
+        ax.set_title(f"z{i} vs z{j}")
+
+        x_low, x_high = np.percentile(all_z[:, i], [1, 99])
+        y_low, y_high = np.percentile(all_z[:, j], [1, 99])
+
+        ax.set_xlim(x_low, x_high)
+        ax.set_ylim(y_low, y_high)
+
+    for ax in axes[len(pairs) :]:
+        ax.axis("off")
+
+    plt.tight_layout()
+    plt.title(title)
     plt.show()

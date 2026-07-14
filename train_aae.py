@@ -187,8 +187,6 @@ def train(model, train_loader, epochs, device, lr_ae=1e-3, lr_g=1e-3, lr_d=1e-3)
         epoch_recon_loss = 0.0
         epoch_d_loss = 0.0
         epoch_g_loss = 0.0
-        epoch_z_mean = 0.0
-        epoch_z_std = 0.0
 
         for x, _ in train_loader:
 
@@ -246,8 +244,7 @@ def train(model, train_loader, epochs, device, lr_ae=1e-3, lr_g=1e-3, lr_d=1e-3)
             epoch_d_loss += Ld_total.item()
             epoch_g_loss += Lg.item()
 
-        epoch_z_mean /= len(train_loader)
-        epoch_z_std /= len(train_loader)
+
         epoch_recon_loss /= len(train_loader)
         epoch_d_loss /= len(train_loader)
         epoch_g_loss /= len(train_loader)
@@ -260,9 +257,7 @@ def train(model, train_loader, epochs, device, lr_ae=1e-3, lr_g=1e-3, lr_d=1e-3)
             f"Epoch [{epoch + 1}/{epochs}] "
             f"Recon Loss: {epoch_recon_loss:.6f} | "
             f"D Loss: {epoch_d_loss:.6f} | "
-            f"G Loss: {epoch_g_loss:.6f} |"
-            f"z mean: {epoch_z_mean} |"
-            f"z std: {epoch_z_std}"
+            f"G Loss: {epoch_g_loss:.6f} "
         )
 
     return history
@@ -277,7 +272,13 @@ def compute_scores(model, dataloader, recon_top_k, outlier_estimator):
 
     model.eval()
     for x, y in dataloader:
-        recon, z = model(x)
+        res = model(x)
+
+        if isinstance(res, tuple):
+            recon, z = res
+        else:
+            recon = res
+            z = model.encoder(x)
 
         # reconstruction error score
         recon_score = (recon - x).pow(2).topk(recon_top_k, dim=1).values.mean(dim=1)

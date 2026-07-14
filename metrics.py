@@ -12,6 +12,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     auc,
+    roc_auc_score
 )
 
 def compute_pointwise_metrics(
@@ -149,6 +150,11 @@ def compute_pointwise_metrics(
 
     # sklearn's precision_recall_curve may return recall in decreasing
     # order. auc() handles monotonic increasing or decreasing x-values.
+    roc_auc = roc_auc_score(
+        labels_np, 
+        scores_np
+    )
+
     pr_auc = auc(
         pr_recall,
         pr_precision,
@@ -158,12 +164,12 @@ def compute_pointwise_metrics(
         "precision": float(precision),
         "recall": float(recall),
         "f1": float(f1),
-        f"f_{beta:g}": float(f_beta),
+        f"f{beta:g}": float(f_beta),
         "accuracy": float(accuracy),
         "balanced_accuracy": float(balanced_accuracy),
         "pr_auc": float(pr_auc),
+        "roc_auc": float(roc_auc), 
         "average_precision": float(average_precision),
-        "beta": float(beta),
         "n_samples": int(n),
         "n_normal": int(np.sum(labels_np == 0)),
         "n_anomaly": int(np.sum(labels_np == 1)),
