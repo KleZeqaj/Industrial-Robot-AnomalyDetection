@@ -37,14 +37,10 @@ def parse_args():
         "--lr_g", type=float, default=1e-4, help="Learning rate for the generator (ae encoder) optimizer."
     )
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
-    parser.add_argument(
-        "--pretrain-epochs",
-        type=int,
-        default=30,
-        help="Number of epochs for the reconstruction-only pretraining phase (encoder + decoder), run before adversarial training.",
-    )
     parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
-    parser.add_argument("--lambda-adv", type=float, default=0.001, help="Learning rate for the discriminator optimizer.")
+    parser.add_argument(
+        "--lambda-adv", type=float, default=0.001, help="Learning rate for the discriminator optimizer."
+    )
     parser.add_argument(
         "--pretrain-epochs",
         type=int,
@@ -464,9 +460,6 @@ def main():
 
     report_results(preds, labels, compute_pointwise_metrics(labels, preds, scores))
     plot_scores(scores, labels, threshold=t, title="Fusion Score")
-
-
-
 
 
 if __name__ == "__main__":
