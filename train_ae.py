@@ -6,8 +6,6 @@ import torch
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
-    roc_auc_score,
-    average_precision_score,
 )
 from torch.utils.data import DataLoader
 
@@ -48,32 +46,6 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=123, help="Optional random seed for reproducibility.")
 
     return parser.parse_args()
-
-
-def error_distribution_report(all_errors, all_labels, name="model"):
-    y = all_labels.numpy()
-    s = all_errors.numpy()
-
-    normal_errors = all_errors[all_labels == 0]
-    anomaly_errors = all_errors[all_labels == 1]
-
-    roc_auc = roc_auc_score(y, s)
-    pr_auc = average_precision_score(y, s)
-
-    print(f"\n=== {name} ===")
-    print(f"ROC-AUC: {roc_auc:.4f}")
-    print(f"PR-AUC : {pr_auc:.4f}")
-
-    for label_name, e in [("Normal", normal_errors), ("Anomaly", anomaly_errors)]:
-        qs = torch.quantile(e, torch.tensor([0.50, 0.75, 0.90, 0.95, 0.99]))
-
-        print(f"\n{label_name} errors")
-        print(f"mean: {e.mean().item():.6f}")
-        print(f"q50 : {qs[0].item():.6f}")
-        print(f"q75 : {qs[1].item():.6f}")
-        print(f"q90 : {qs[2].item():.6f}")
-        print(f"q95 : {qs[3].item():.6f}")
-        print(f"q99 : {qs[4].item():.6f}")
 
 
 def get_device():

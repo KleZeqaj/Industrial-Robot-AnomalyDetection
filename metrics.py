@@ -12,8 +12,8 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     auc,
-    roc_auc_score
 )
+
 
 def compute_pointwise_metrics(
     labels,
@@ -73,16 +73,10 @@ def compute_pointwise_metrics(
     n = len(labels_np)
 
     if len(preds_np) != n:
-        raise ValueError(
-            f"labels and preds must have the same length: "
-            f"{n} != {len(preds_np)}"
-        )
+        raise ValueError(f"labels and preds must have the same length: " f"{n} != {len(preds_np)}")
 
     if len(scores_np) != n:
-        raise ValueError(
-            f"labels and scores must have the same length: "
-            f"{n} != {len(scores_np)}"
-        )
+        raise ValueError(f"labels and scores must have the same length: " f"{n} != {len(scores_np)}")
 
     # Validate binary ground truth and predictions.
     _validate_binary(labels_np, name="labels")
@@ -150,10 +144,6 @@ def compute_pointwise_metrics(
 
     # sklearn's precision_recall_curve may return recall in decreasing
     # order. auc() handles monotonic increasing or decreasing x-values.
-    roc_auc = roc_auc_score(
-        labels_np, 
-        scores_np
-    )
 
     pr_auc = auc(
         pr_recall,
@@ -168,12 +158,12 @@ def compute_pointwise_metrics(
         "accuracy": float(accuracy),
         "balanced_accuracy": float(balanced_accuracy),
         "pr_auc": float(pr_auc),
-        "roc_auc": float(roc_auc), 
         "average_precision": float(average_precision),
         "n_samples": int(n),
         "n_normal": int(np.sum(labels_np == 0)),
         "n_anomaly": int(np.sum(labels_np == 1)),
     }
+
 
 def _to_1d_numpy(values, name: str) -> np.ndarray:
     """
@@ -199,7 +189,4 @@ def _validate_binary(values: np.ndarray, name: str) -> None:
     unique_values = np.unique(values)
 
     if not np.all(np.isin(unique_values, [0, 1])):
-        raise ValueError(
-            f"{name} must contain only binary values {{0, 1}}, "
-            f"found {unique_values.tolist()}"
-        )
+        raise ValueError(f"{name} must contain only binary values {{0, 1}}, " f"found {unique_values.tolist()}")
