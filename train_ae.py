@@ -29,9 +29,9 @@ def parse_args():
     parser.add_argument("--latent-dim", type=int, default=4, help="Dimensionality of the autoencoder latent space.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for the optimizer.")
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
-    parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
+    parser.add_argument("--quantile", type=float, default=0.75, help="Quantile used to compute the anomaly threshold.")
     parser.add_argument(
-        "--top-k", type=int, default=10, help="Number of top errors averaged in the reconstruction error function."
+        "--top-k", type=int, default=20, help="Number of top errors averaged in the reconstruction error function."
     )
     parser.add_argument(
         "--weights-out",
