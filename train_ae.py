@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
     parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
     parser.add_argument(
-        "--top-k", type=int, default=5, help="Number of top errors averaged in the reconstruction error function."
+        "--top-k", type=int, default=10, help="Number of top errors averaged in the reconstruction error function."
     )
     parser.add_argument(
         "--weights-out",
