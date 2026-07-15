@@ -37,7 +37,6 @@ def parse_args():
         "--lr_g", type=float, default=1e-4, help="Learning rate for the generator (ae encoder) optimizer."
     )
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
-    parser.add_argument("--quantile", type=float, default=0.85, help="Quantile used to compute the anomaly threshold.")
     parser.add_argument(
         "--lambda-adv", type=float, default=0.001, help="Learning rate for the discriminator optimizer."
     )
@@ -115,15 +114,24 @@ def build_dataloaders(data_dir, batch_size, seed=None):
     x_val = preprocessor.transform(splits.x_val)
     x_test = preprocessor.transform(splits.x_test)
 
+    split_index = int(len(x_val) / 2)
+    x_train_fuse = x_val[0:split_index, :]
+    y_train_fuse = splits.y_val[0:split_index]
+
+    x_val = x_val[split_index:, :]
+    y_val = splits.y_val[split_index:]
+
     train_dataset = KukaDataset(x_train, splits.y_train)
-    val_dataset = KukaDataset(x_val, splits.y_val)
+    train_fuse_dataset = KukaDataset(x_train_fuse, y_train_fuse)
+    val_dataset = KukaDataset(x_val, y_val)
     test_dataset = KukaDataset(x_test, splits.y_test)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_fuse_loader = DataLoader(train_fuse_dataset, batch_size=batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    return train_dataset, train_loader, val_loader, test_loader, preprocessor
+    return train_loader, train_fuse_loader, val_loader, test_loader, preprocessor
 
 
 def pretrain(
@@ -418,12 +426,13 @@ def main():
 
     device = get_device()
 
-    train_dataset, train_loader, val_loader, test_loader, _ = build_dataloaders(
+    train_loader, train_fuse_loader, _, test_loader, _ = build_dataloaders(
         data_dir=args.data_dir,
         batch_size=args.batch_size,
         seed=args.seed,
     )
 
+    train_dataset = train_loader.dataset
     x, _ = train_dataset[0]
     input_dim = x.shape[0]
 
@@ -441,9 +450,11 @@ def main():
         print("Training outlier estimator...")
         estimator = train_outlier_estimator(aae, train_loader)
 
-        # compute and fuse scores on validation set
+        # compute and fuse scores on fusion training set
         print("Training fusion model...")
-        recon_scores, outlier_scores, latent_scores, labels = compute_scores(aae, val_loader, args.top_k, estimator)
+        recon_scores, outlier_scores, latent_scores, labels = compute_scores(
+            aae, train_fuse_loader, args.top_k, estimator
+        )
         fusion_model = train_fusion_model(labels, recon_scores, outlier_scores, latent_scores)
 
         save_checkpoint(args.weights_out, aae, input_dim, args.latent_dim, estimator, fusion_model)

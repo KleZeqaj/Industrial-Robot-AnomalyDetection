@@ -13,7 +13,7 @@ from dataset.kuka_dataset import KukaDataset
 from dataset.kuka_splits import split_kuka_numpy
 from models.AE import AE
 from processing.kuka_processing import KukaPreprocessor
-from utils import compute_threshold, plot_reconstruction_errors
+from utils import plot_reconstruction_errors
 from metrics import compute_pointwise_metrics
 
 
@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--latent-dim", type=int, default=4, help="Dimensionality of the autoencoder latent space.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for the optimizer.")
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
-    parser.add_argument("--quantile", type=float, default=0.75, help="Quantile used to compute the anomaly threshold.")
+    parser.add_argument("--t", type=float, default=0.00, help="Binary classification threshold.")
     parser.add_argument(
         "--top-k", type=int, default=20, help="Number of top errors averaged in the reconstruction error function."
     )
@@ -173,7 +173,7 @@ def main():
 
     device = get_device()
 
-    train_dataset, train_loader, val_loader, test_loader, _ = build_dataloaders(
+    train_dataset, train_loader, _, test_loader, _ = build_dataloaders(
         data_dir=args.data_dir,
         batch_size=args.batch_size,
         seed=args.seed,
@@ -194,18 +194,10 @@ def main():
             os.makedirs(output_dir, exist_ok=True)
         torch.save(ae.state_dict(), args.weights_out)
 
-    t = compute_threshold(
-        ae,
-        val_loader,
-        quantile=args.quantile,
-        err_fn=lambda pred, x: err_fn(pred, x, args.top_k),
-    )
-    print(f"Threshold: {t:.6f}")
-
-    all_preds, all_labels, all_errors = evaluate(ae, test_loader, device, t, args.top_k)
+    all_preds, all_labels, all_errors = evaluate(ae, test_loader, device, args.t, args.top_k)
     metrics = compute_pointwise_metrics(all_labels, all_preds, all_errors, 2.0)
     report_results(all_preds, all_labels, metrics)
-    plot_reconstruction_errors(all_errors, all_labels, t, quantile=args.quantile)
+    plot_reconstruction_errors(all_errors, all_labels, args.t)
 
 
 if __name__ == "__main__":

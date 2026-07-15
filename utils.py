@@ -4,52 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def compute_threshold(model, dataloader, normal_label=0, quantile=0.95, err_fn=None):
-    """Compute the threshold as the given quantile of the reconstruction
-    error distribution of only normal samples.
-
-    Args:
-        model: Model to use for the threshold computation.
-        dataloader: Iterable of (x, y) batches, where `x` are the input samples
-            and `y` are their labels.
-        normal_label: Label value identifying normal (non-anomalous) samples.
-            Only samples with this label are used to compute the threshold.
-        quantile: Quantile (between 0 and 1) of the normal-sample error
-            distribution used as the threshold.
-        err_fn: Optional callable `err_fn(recon, x) -> Tensor` returning a
-            per-sample reconstruction error. If None, defaults to the mean
-            squared error per sample.
-
-    Returns:
-        float: The computed threshold.
-    """
-    model.eval()
-    device = next(model.parameters()).device
-
-    all_errors = []
-
-    with torch.no_grad():
-        for x, y in dataloader:
-            mask = y == normal_label
-            if mask.sum().item() == 0:
-                continue
-
-            x = x[mask].to(device)
-            recon = model(x)
-
-            if isinstance(recon, tuple):
-                recon = recon[0]
-
-            err = (recon - x).pow(2).mean(dim=1) if err_fn is None else err_fn(recon, x)
-            all_errors.append(err.cpu())  # move to CPU to keep memory footprint low
-
-    all_errors = torch.cat(all_errors)
-
-    t = torch.quantile(all_errors, quantile)
-    return t.item()
-
-
-def plot_reconstruction_errors(errors, labels, threshold, quantile):
+def plot_reconstruction_errors(errors, labels, threshold):
     errors_np = errors.cpu().numpy()
     labels_np = labels.cpu().numpy()
 
@@ -99,10 +54,11 @@ def plot_reconstruction_errors(errors, labels, threshold, quantile):
     plt.xlim(0, plot_max)
     plt.xlabel("Reconstruction Error")
     plt.ylabel("Density")
-    plt.title(f"Reconstruction Error Distribution (Test Set, {int(quantile*100)}th Percentile Zoom)")
+    plt.title(f"Reconstruction Error Distribution")
     plt.legend()
     plt.tight_layout()
     plt.show()
+
 
 def plot_scores(scores, labels, threshold, title="Score Distribution"):
     scores_np = scores.cpu().numpy()
@@ -117,8 +73,10 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
     plot_min = np.min(scores_np)
 
     norm_upper = np.percentile(normal_scores, 99.5) if len(normal_scores) > 0 else 0
-    anom_upper = np.percentile(anomaly_scores, 75) if len(anomaly_scores) > 0 else 0 # cap anomalies distr to 75%, everything after is discarded
-    
+    anom_upper = (
+        np.percentile(anomaly_scores, 75) if len(anomaly_scores) > 0 else 0
+    )  # cap anomalies distr to 75%, everything after is discarded
+
     # Set the upper bound to view the decision boundary and the bulk of both distributions
     plot_max = max(norm_upper * 1.5, anom_upper)
 
@@ -141,7 +99,7 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
 
     plt.hist(
         normal_in_range,
-        bins=150, 
+        bins=150,
         range=(plot_min, plot_max),
         density=True,
         alpha=0.6,
@@ -175,6 +133,7 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
     plt.legend()
     plt.tight_layout()
     plt.show()
+
 
 def plot_latent(model, dataloader, latent_dim, title=""):
 
