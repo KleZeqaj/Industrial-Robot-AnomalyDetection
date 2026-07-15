@@ -15,6 +15,51 @@ from sklearn.metrics import (
 )
 
 
+def compute_f1_score(preds, labels):
+    labels_np = _to_1d_numpy(labels, name="labels")
+    preds_np = _to_1d_numpy(preds, name="preds")
+
+    zero_division = 0
+
+    return f1_score(
+        labels_np,
+        preds_np,
+        pos_label=1,
+        zero_division=zero_division,
+    )
+
+
+def precision_recall_thresholds(scores, labels):
+    labels_np = _to_1d_numpy(labels, name="labels")
+    scores_np = _to_1d_numpy(scores, name="scores")
+
+    return precision_recall_curve(
+        labels_np,
+        scores_np,
+        pos_label=1,
+    )
+
+
+def compute_pr_auc(scores, labels) -> float:
+
+    labels_np = _to_1d_numpy(labels, name="labels")
+    scores_np = _to_1d_numpy(scores, name="scores")
+
+    pr_precision, pr_recall, _ = precision_recall_curve(
+        labels_np,
+        scores_np,
+        pos_label=1,
+    )
+
+    # sklearn's precision_recall_curve may return recall in decreasing
+    # order. auc() handles monotonic increasing or decreasing x-values.
+
+    return auc(
+        pr_recall,
+        pr_precision,
+    )
+
+
 def compute_pointwise_metrics(
     labels,
     preds,
