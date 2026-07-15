@@ -186,7 +186,7 @@ def report_results(all_preds, all_labels, metrics):
     print(f"Precision:         {metrics['precision']:.6f}")
     print(f"Recall:            {metrics['recall']:.6f}")
     print(f"F1:                {metrics['f1']:.6f}")
-    print(f"F2:                {metrics['f_2']:.6f}")
+    print(f"F2:                {metrics['f2']:.6f}")
     print(f"Accuracy:          {metrics['accuracy']:.6f}")
     print(f"Balanced Accuracy: " f"{metrics['balanced_accuracy']:.6f}")
     print(f"PR-AUC:            {metrics['pr_auc']:.6f}")

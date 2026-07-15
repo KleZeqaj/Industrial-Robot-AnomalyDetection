@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, default=1024, help="Batch size for the data loaders.")
     parser.add_argument("--latent-dim", type=int, default=4, help="Dimensionality of the autoencoder latent space.")
     parser.add_argument("--lr_ae", type=float, default=1e-3, help="Learning rate for the autoencoder optimizer.")
-    parser.add_argument("--lr_d", type=float, default=5e-4, help="Learning rate for the discriminator optimizer.")
+    parser.add_argument("--lr_d", type=float, default=5e-5, help="Learning rate for the discriminator optimizer.")
     parser.add_argument(
         "--lr_g", type=float, default=1e-4, help="Learning rate for the generator (ae encoder) optimizer."
     )
@@ -239,7 +239,6 @@ def train(model, train_loader, epochs, device, lr_ae=1e-3, lr_g=1e-3, lr_d=1e-3)
             epoch_recon_loss += Lrec.item()
             epoch_d_loss += Ld_total.item()
             epoch_g_loss += Lg.item()
-
 
         epoch_recon_loss /= len(train_loader)
         epoch_d_loss /= len(train_loader)
