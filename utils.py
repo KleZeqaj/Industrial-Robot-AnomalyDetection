@@ -59,8 +59,7 @@ def plot_reconstruction_errors(errors, labels, threshold):
     plt.tight_layout()
     plt.show()
 
-
-def plot_scores(scores, labels, threshold, title="Score Distribution"):
+def plot_scores(scores, labels, threshold=None, title="Score Distribution", clip=False):
     scores_np = scores.cpu().numpy()
     labels_np = labels.cpu().numpy()
 
@@ -72,21 +71,20 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
 
     plot_min = np.min(scores_np)
 
-    norm_upper = np.percentile(normal_scores, 99.5) if len(normal_scores) > 0 else 0
-    anom_upper = (
-        np.percentile(anomaly_scores, 75) if len(anomaly_scores) > 0 else 0
-    )  # cap anomalies distr to 75%, everything after is discarded
+    if clip:
+        norm_upper = np.percentile(normal_scores, 99.5) if len(normal_scores) > 0 else 0
+        anom_upper = np.percentile(anomaly_scores, 75) if len(anomaly_scores) > 0 else 0
+        
+        plot_max = max(norm_upper * 1.5, anom_upper)
 
-    # Set the upper bound to view the decision boundary and the bulk of both distributions
-    plot_max = max(norm_upper * 1.5, anom_upper)
+        if threshold is not None and threshold > plot_max and threshold < scores_np.max():
+            plot_max = threshold * 1.25
 
-    # Safeguard: Ensure the threshold is always comfortably visible in the plot
-    if threshold > plot_max and threshold < scores_np.max():
-        plot_max = threshold * 1.25
-
-    # Fallback in degenerate cases
-    if plot_min >= plot_max:
-        plot_min = scores_np.min()
+        # Fallback in degenerate cases
+        if plot_min >= plot_max:
+            plot_max = scores_np.max()
+            
+    else:
         plot_max = scores_np.max()
 
     normal_in_range = normal_scores[(normal_scores >= plot_min) & (normal_scores <= plot_max)]
@@ -99,7 +97,7 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
 
     plt.hist(
         normal_in_range,
-        bins=150,
+        bins=150, 
         range=(plot_min, plot_max),
         density=True,
         alpha=0.6,
@@ -117,7 +115,7 @@ def plot_scores(scores, labels, threshold, title="Score Distribution"):
         label=f"Anomaly (clipped: {anomaly_clipped})",
     )
 
-    if plot_min <= threshold <= plot_max:
+    if threshold is not None and plot_min <= threshold <= plot_max:
         plt.axvline(
             threshold,
             color="red",
