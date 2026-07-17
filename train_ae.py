@@ -54,9 +54,12 @@ def get_device():
     return device
 
 
-def build_dataloaders(data_dir, batch_size, seed=None):
-    selected_features_list = get_selected_idxs("feature_selection_ae_recon_sep_ranking.csv")
-    splits = split_kuka_numpy(data_dir, feature_indices=selected_features_list, seed=seed)
+def build_dataloaders(data_dir, batch_size, filter=None, seed=None):
+    if filter is not None:
+        selected_features_list = get_selected_idxs("feature_selection_ae_recon_sep_ranking.csv")
+        splits = split_kuka_numpy(data_dir, feature_indices=selected_features_list, seed=seed)
+    else:
+        splits = split_kuka_numpy(data_dir, seed=seed)
 
     preprocessor = KukaPreprocessor(
         normalization=True,
@@ -177,6 +180,7 @@ def main():
     train_dataset, train_loader, _, test_loader, _ = build_dataloaders(
         data_dir=args.data_dir,
         batch_size=args.batch_size,
+        filter=True,
         seed=args.seed,
     )
 

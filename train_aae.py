@@ -101,9 +101,12 @@ def get_device():
     return device
 
 
-def build_dataloaders(data_dir, batch_size, seed=None):
-    selected_features_list = get_selected_idxs("feature_selection_aae_ks_ranking.csv")
-    splits = split_kuka_numpy(data_dir, feature_indices=selected_features_list, seed=seed)
+def build_dataloaders(data_dir, batch_size, filter=None, seed=None):
+    if filter is not None:
+        selected_features_list = get_selected_idxs("feature_selection_aae_ks_ranking.csv")
+        splits = split_kuka_numpy(data_dir, feature_indices=selected_features_list, seed=seed)
+    else:
+        splits = split_kuka_numpy(data_dir, seed=seed)
 
     preprocessor = KukaPreprocessor(
         normalization=True,

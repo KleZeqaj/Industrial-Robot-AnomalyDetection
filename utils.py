@@ -46,7 +46,7 @@ def select_top_m_recon_sep(model, dataloader, top_m, device, candidate_features,
     order = np.argsort(separation)[::-1]
 
     candidate_features = np.asarray(candidate_features, dtype=int)
-    return candidate_features[order][top_m], separation[order][top_m]
+    return candidate_features[order], separation[order][:top_m]
 
 
 
