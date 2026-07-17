@@ -1,0 +1,11 @@
+rank,feature_index,feature_name,ks_score
+1,37,sensor_id3_q1,0.4444222653131059
+2,17,sensor_id1_q3,0.41310260964379736
+3,15,sensor_id1_q1,0.4117991475733413
+4,72,sensor_id6_q3,0.3956364949729222
+5,71,sensor_id6_q2,0.35986830904038125
+6,38,sensor_id3_q2,0.3570461176676598
+7,8,machine_nameKuka Robot_voltage,0.3352158208016184
+8,50,sensor_id4_q3,0.33362945020602086
+9,4,machine_nameKuka Robot_phase_angle,0.30835412384903466
+10,6,machine_nameKuka Robot_power_factor,0.3083274737423955

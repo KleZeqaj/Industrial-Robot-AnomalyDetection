@@ -1,0 +1,41 @@
+rank,feature_index,feature_name
+1,49,sensor_id4_q2
+2,48,sensor_id4_q1
+3,47,sensor_id4_GyroZ
+4,50,sensor_id4_q3
+5,37,sensor_id3_q1
+6,26,sensor_id2_q1
+7,61,sensor_id5_q3
+8,58,sensor_id5_GyroZ
+9,72,sensor_id6_q3
+10,82,sensor_id7_q2
+11,25,sensor_id2_GyroZ
+12,71,sensor_id6_q2
+13,59,sensor_id5_q1
+14,27,sensor_id2_q2
+15,6,machine_nameKuka Robot_power_factor
+16,24,sensor_id2_GyroY
+17,19,sensor_id1_temp
+18,20,sensor_id2_AccX
+19,81,sensor_id7_q1
+20,83,sensor_id7_q3
+21,0,action
+22,69,sensor_id6_GyroZ
+23,60,sensor_id5_q2
+24,52,sensor_id4_temp
+25,3,machine_nameKuka Robot_frequency
+26,5,machine_nameKuka Robot_power
+27,80,sensor_id7_GyroZ
+28,1,machine_nameKuka Robot_apparent_power
+29,36,sensor_id3_GyroZ
+30,4,machine_nameKuka Robot_phase_angle
+31,2,machine_nameKuka Robot_current
+32,70,sensor_id6_q1
+33,39,sensor_id3_q3
+34,53,sensor_id5_AccX
+35,51,sensor_id4_q4
+36,54,sensor_id5_AccY
+37,84,sensor_id7_q4
+38,14,sensor_id1_GyroZ
+39,15,sensor_id1_q1
+40,38,sensor_id3_q2
