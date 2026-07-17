@@ -15,6 +15,7 @@ class KukaSplits:
 
 def split_kuka_numpy(
     data_dir,
+    feature_indices=None,
     train_ratio=0.70,
     val_ratio=0.15,
     anomaly_val_ratio=0.50,
@@ -26,8 +27,13 @@ def split_kuka_numpy(
     x_normal = np.load(data_dir / "KukaNormal.npy")
     slow_raw = np.load(data_dir / "KukaSlow.npy")
 
+    # 1. Separate features and labels first
     x_slow = slow_raw[:, :-1]
     y_slow = slow_raw[:, -1].astype(np.int64)
+    
+    if feature_indices is not None:
+        x_normal = x_normal[:, feature_indices]
+        x_slow = x_slow[:, feature_indices]
 
     if binary_labels:
         y_slow = (y_slow != 0).astype(np.int64)
@@ -77,7 +83,6 @@ def split_kuka_numpy(
         y_slow[test_slow_idx],
     ], axis=0)
 
-    # shuffle finale di validation/test, per evitare blocchi ordinati normal-then-slow
     val_perm = rng.permutation(len(x_val))
     test_perm = rng.permutation(len(x_test))
 

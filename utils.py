@@ -2,6 +2,53 @@ import torch
 import itertools
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+
+RESULTS_DIR = "./results"
+
+def get_selected_idxs(file_name):
+    file_path = RESULTS_DIR + f"/{file_name}"
+
+    df = pd.read_csv(file_path)
+    idx_list = df['feature_index'].tolist()
+    return idx_list
+
+
+def select_top_m_recon_sep(model, dataloader, top_m, device, candidate_features, eps=1e-8):
+    model.eval()
+
+    normal_errors = []
+    anomaly_errors = []
+
+    with torch.no_grad():
+        for x, y in dataloader:
+            x = x.to(device)
+            recon = model(x)
+            feature_err = (recon - x).pow(2).cpu()
+
+            y = y.cpu()
+            if (y == 0).any():
+                normal_errors.append(feature_err[y == 0])
+            if (y == 1).any():
+                anomaly_errors.append(feature_err[y == 1])
+
+    if not normal_errors or not anomaly_errors:
+        raise ValueError("Validation split must contain both normal and anomaly samples.")
+
+    normal_errors = torch.cat(normal_errors, dim=0)
+    anomaly_errors = torch.cat(anomaly_errors, dim=0)
+
+    normal_mean = normal_errors.mean(dim=0)
+    normal_std = normal_errors.std(dim=0)
+    anomaly_mean = anomaly_errors.mean(dim=0)
+
+    separation = ((anomaly_mean - normal_mean) / (normal_std + eps)).numpy()
+    order = np.argsort(separation)[::-1]
+
+    candidate_features = np.asarray(candidate_features, dtype=int)
+    return candidate_features[order][top_m], separation[order][top_m]
+
+
 
 
 def plot_reconstruction_errors(errors, labels, threshold):

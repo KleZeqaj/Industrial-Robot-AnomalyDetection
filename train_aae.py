@@ -10,7 +10,7 @@ from dataset.kuka_dataset import KukaDataset
 from dataset.kuka_splits import split_kuka_numpy
 from models.AAE import AAE
 from processing.kuka_processing import KukaPreprocessor
-from utils import plot_scores
+from utils import plot_scores, get_selected_idxs
 
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.mixture import GaussianMixture
@@ -102,7 +102,8 @@ def get_device():
 
 
 def build_dataloaders(data_dir, batch_size, seed=None):
-    splits = split_kuka_numpy(data_dir, seed=seed)
+    selected_features_list = get_selected_idxs("feature_selection_aae_ks_ranking.csv")
+    splits = split_kuka_numpy(data_dir, feature_indices=selected_features_list, seed=seed)
 
     preprocessor = KukaPreprocessor(
         normalization=True,

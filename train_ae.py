@@ -13,7 +13,7 @@ from dataset.kuka_dataset import KukaDataset
 from dataset.kuka_splits import split_kuka_numpy
 from models.AE import AE
 from processing.kuka_processing import KukaPreprocessor
-from utils import plot_reconstruction_errors
+from utils import plot_reconstruction_errors, get_selected_idxs
 from metrics import compute_pointwise_metrics
 
 
@@ -55,7 +55,8 @@ def get_device():
 
 
 def build_dataloaders(data_dir, batch_size, seed=None):
-    splits = split_kuka_numpy(data_dir, seed=seed)
+    selected_features_list = get_selected_idxs("feature_selection_ae_recon_sep_ranking.csv")
+    splits = split_kuka_numpy(data_dir, feature_indices=selected_features_list, seed=seed)
 
     preprocessor = KukaPreprocessor(
         normalization=True,
