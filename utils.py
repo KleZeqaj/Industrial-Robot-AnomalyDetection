@@ -3,11 +3,17 @@ import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from pathlib import Path
+import sys
 
-RESULTS_DIR = "./results"
+PROJECT_ROOT = Path(__file__).parent.resolve()
+
+# Add to sys.path if needed
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 def get_selected_idxs(file_name):
-    file_path = RESULTS_DIR + f"/{file_name}"
+    file_path = PROJECT_ROOT / "results" / file_name
 
     df = pd.read_csv(file_path)
     idx_list = df['feature_index'].tolist()

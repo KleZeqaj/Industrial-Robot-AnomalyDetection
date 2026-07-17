@@ -27,9 +27,9 @@ def parse_args():
     parser.add_argument("--latent-dim", type=int, default=4, help="Dimensionality of the autoencoder latent space.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for the optimizer.")
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs.")
-    parser.add_argument("--t", type=float, default=0.00, help="Binary classification threshold.")
+    parser.add_argument("--t", type=float, default=0.029, help="Binary classification threshold.")
     parser.add_argument(
-        "--top-k", type=int, default=20, help="Number of top errors averaged in the reconstruction error function."
+        "--top-k", type=int, default=10, help="Number of top errors averaged in the reconstruction error function."
     )
     parser.add_argument(
         "--weights-out",
@@ -54,9 +54,9 @@ def get_device():
     return device
 
 
-def build_dataloaders(data_dir, batch_size, filter=None, seed=None):
+def build_dataloaders(data_dir, batch_size, filter=None, filename="feature_selection_ae_recon_sep_ranking.csv", seed=None):
     if filter is not None:
-        selected_features_list = get_selected_idxs("feature_selection_ae_recon_sep_ranking.csv")
+        selected_features_list = get_selected_idxs(filename)
         splits = split_kuka_numpy(data_dir, feature_indices=selected_features_list, seed=seed)
     else:
         splits = split_kuka_numpy(data_dir, seed=seed)
